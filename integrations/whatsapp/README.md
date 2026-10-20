@@ -10,3 +10,7 @@ Kişisel WhatsApp hesabı için genel amaçlı ve resmi bir bot API'si varmış 
 Otomatik gönderim ancak resmi, desteklenen bir çözüm ve kullanıcı onayıyla ayrıca incelenmelidir.
 
 Bu klasör şu anda yalnızca plan içerir; çalışan entegrasyon henüz yok.
+
+## iPhone kullanıcıları
+
+Kişisel WhatsApp mesajlarını iPhone'da otomatik izlemek desteklenen bir yöntem değildir. Ücretsiz, kullanıcı kontrollü paylaşım/kopyalama akışı için [iOS Shortcuts rehberine](./IOS_SHORTCUTS.md) bakın.
