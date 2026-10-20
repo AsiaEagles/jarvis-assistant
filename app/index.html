@@ -16,14 +16,30 @@
   <section class="grid">
     <article class="card"><h3>⌘ Komut kutusu</h3><p class="muted">WhatsApp'taki mesajı buraya yapıştır veya bir komut yaz.</p><textarea id="commandInput" placeholder="Örn. görev ekle: market alışverişi" aria-label="Jarvis komutu"></textarea><button class="button" id="runCommand" type="button" style="margin-top:10px;width:100%">Komutu işle</button><p id="commandStatus" class="status" aria-live="polite"></p><div class="item muted"><b>Komutlar</b><br>yardım<br>görev ekle: ...<br>mesaj taslağı: ...<br>takvim</div></article>
     <article class="card"><h3>◷ Bugünkü örnek takvim</h3><div class="item"><div class="time">09:00</div>Günün planını gözden geçir</div><div class="item"><div class="time">13:30</div>Görevleri kontrol et</div><div class="item"><div class="time">18:00</div>Yarın için hazırlık</div></article>
-    <article class="card"><h3>✓ Görevler</h3><form id="taskForm"><input id="taskInput" placeholder="Yeni görev yaz…" aria-label="Yeni görev"><button class="button" style="margin-top:10px;width:100%" type="submit">Görev ekle</button></form><div id="tasks"><div class="item">□ Jarvis yol haritasını incele</div><div class="item">□ Takvim bağlantısını planla</div></div></article>
+    <article class="card"><h3>✓ Görevler</h3><form id="taskForm"><input id="taskInput" placeholder="Yeni görev yaz…" aria-label="Yeni görev"><button class="button" style="margin-top:10px;width:100%" type="submit">Görev ekle</button></form><div id="tasks" aria-live="polite"></div><p class="muted">Görevler bu cihazdaki tarayıcıda saklanır. Bir görevi tamamlamak için kutucuğu işaretle.</p></article>
     <article class="card"><h3>✉ Mesaj taslağı</h3><p>Burada oluşturulan taslak gönderilmez.</p><textarea id="message" placeholder="Mesaj taslağı…" aria-label="Mesaj taslağı" style="margin:12px 0"></textarea><button class="button" id="copyBtn" type="button">Taslağı kopyala</button><p id="status" class="status" aria-live="polite"></p></article>
   </section>
-  <div class="notice">Gizlilik: Bu prototip komutları yalnızca açık sayfada işler. WhatsApp mesajlarını otomatik okumaz/göndermez, gerçek takvime bağlanmaz ve verileri bir sunucuya yollamaz. Sayfayı yenilersen eklediğin demo görevler kaybolabilir.</div>
+  <div class="notice">Gizlilik: Görevler yalnızca bu cihazdaki tarayıcıda saklanır; sunucuya gönderilmez. Tarayıcı verilerini silersen kaybolabilir. WhatsApp mesajları otomatik okunmaz/gönderilmez ve gerçek takvim henüz bağlı değildir.</div>
   <footer>Jarvis Assistant · Kişisel WhatsApp için güvenli manuel aktarım prototipi</footer>
 </main><script>
 const form=document.getElementById('taskForm'),input=document.getElementById('taskInput'),tasks=document.getElementById('tasks');
-function addTask(value){const el=document.createElement('div');el.className='item';el.textContent='□ '+value;tasks.appendChild(el);}
+const STORAGE_KEY='jarvis-assistant-tasks-v1';
+let taskItems=[];
+try { const saved=localStorage.getItem(STORAGE_KEY); if(saved) taskItems=JSON.parse(saved); } catch(e) { taskItems=[]; }
+function saveTasks(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(taskItems));}catch(e){alert('Bu tarayıcı görevleri kaydedemedi.');}}
+function renderTasks(){
+ tasks.replaceChildren();
+ if(!taskItems.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Henüz görev yok. Yukarıdan bir görev ekleyebilirsin.';tasks.appendChild(empty);return;}
+ taskItems.forEach(task=>{
+  const row=document.createElement('div');row.className='item';row.style.display='flex';row.style.alignItems='center';row.style.gap='10px';
+  const check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.setAttribute('aria-label','Görevi tamamlandı olarak işaretle');check.style.width='auto';check.addEventListener('change',()=>{task.done=check.checked;saveTasks();renderTasks();});
+  const label=document.createElement('span');label.textContent=task.text;label.style.flex='1';if(task.done)label.style.textDecoration='line-through';if(task.done)label.style.opacity='.6';
+  const remove=document.createElement('button');remove.type='button';remove.className='button';remove.textContent='Sil';remove.setAttribute('aria-label','Görevi sil');remove.style.padding='5px 9px';remove.addEventListener('click',()=>{taskItems=taskItems.filter(item=>item.id!==task.id);saveTasks();renderTasks();});
+  row.append(check,label,remove);tasks.appendChild(row);
+ });
+}
+function addTask(value){taskItems.push({id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),text:value,done:false});saveTasks();renderTasks();}
+renderTasks();
 form.addEventListener('submit',e=>{e.preventDefault();const value=input.value.trim();if(!value)return;addTask(value);input.value='';});
 const commandInput=document.getElementById('commandInput'),commandStatus=document.getElementById('commandStatus');
 document.getElementById('runCommand').addEventListener('click',()=>{
