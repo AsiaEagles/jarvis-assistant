@@ -16,7 +16,7 @@
   <section class="grid">
     <article class="card"><h3>⌘ Komut kutusu</h3><p class="muted">WhatsApp'taki mesajı buraya yapıştır veya bir komut yaz.</p><textarea id="commandInput" placeholder="Örn. görev ekle: market alışverişi" aria-label="Jarvis komutu"></textarea><button class="button" id="runCommand" type="button" style="margin-top:10px;width:100%">Komutu işle</button><p id="commandStatus" class="status" aria-live="polite"></p><div class="item muted"><b>Komutlar</b><br>yardım<br>görev ekle: ...<br>mesaj taslağı: ...<br>takvim</div></article>
     <article class="card"><h3>◷ Apple Takvim'e etkinlik ekle</h3><p class="muted">Etkinliği hazırla; dosyayı iPhone'da açıp Takvim'e ekle.</p><form id="calendarForm"><label for="eventTitle" class="muted">Etkinlik adı</label><input id="eventTitle" required placeholder="Örn. Doktor randevusu" style="margin:5px 0 10px"><label for="eventDate" class="muted">Tarih</label><input id="eventDate" type="date" required style="margin:5px 0 10px"><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px"><div><label for="eventStart" class="muted">Başlangıç</label><input id="eventStart" type="time" value="09:00" required style="margin-top:5px"></div><div><label for="eventEnd" class="muted">Bitiş</label><input id="eventEnd" type="time" value="09:30" required style="margin-top:5px"></div></div><label for="eventNotes" class="muted" style="display:block;margin-top:10px">Not (isteğe bağlı)</label><textarea id="eventNotes" placeholder="Etkinlik ayrıntıları…" style="margin:5px 0 10px;min-height:65px"></textarea><button class="button" type="submit" style="width:100%">.ics dosyası oluştur</button><p id="calendarStatus" class="status" aria-live="polite"></p></form><p class="muted">Dosyayı açtıktan sonra iPhone'un sunduğu Takvim'e ekleme seçeneğini kullan.</p></article>
-    <article class="card"><h3>✓ Görevler</h3><form id="taskForm"><input id="taskInput" placeholder="Yeni görev yaz…" aria-label="Yeni görev"><button class="button" style="margin-top:10px;width:100%" type="submit">Görev ekle</button></form><div id="tasks" aria-live="polite"></div><p class="muted">Görevler bu cihazdaki tarayıcıda saklanır. Bir görevi tamamlamak için kutucuğu işaretle.</p></article>
+    <article class="card"><h3>✓ Görevler</h3><form id="taskForm"><input id="taskInput" placeholder="Yeni görev yaz…" aria-label="Yeni görev" required><div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px"><div><label for="taskDueDate" class="muted">Son tarih (isteğe bağlı)</label><input id="taskDueDate" type="date" aria-label="Görev son tarihi" style="margin-top:4px"></div><div><label for="taskPriority" class="muted">Öncelik</label><select id="taskPriority" aria-label="Görev önceliği" style="margin-top:4px"><option value="normal">Normal</option><option value="high">Yüksek</option><option value="low">Düşük</option></select></div></div><button class="button" style="margin-top:10px;width:100%" type="submit">Görev ekle</button></form><div style="display:flex;gap:8px;align-items:center;margin-top:12px"><label for="taskFilter" class="muted">Göster:</label><select id="taskFilter" aria-label="Görev filtresi" style="flex:1"><option value="all">Tüm görevler</option><option value="open">Tamamlanmamış</option><option value="done">Tamamlanan</option></select></div><div id="tasks" aria-live="polite"></div><p class="muted">Görevler bu cihazdaki tarayıcıda saklanır. Son tarih ve öncelik ekleyebilirsin. Aynı tarayıcıdaki kayıtlar yenilemeden sonra korunur.</p></article>
     <article class="card"><h3>✉ Mesaj taslağı</h3><p>Burada oluşturulan taslak gönderilmez.</p><textarea id="message" placeholder="Mesaj taslağı…" aria-label="Mesaj taslağı" style="margin:12px 0"></textarea><button class="button" id="copyBtn" type="button">Taslağı kopyala</button><p id="status" class="status" aria-live="polite"></p></article>
   </section>
   <div class="notice">Gizlilik: Görevler yalnızca bu cihazdaki tarayıcıda saklanır; sunucuya gönderilmez. Tarayıcı verilerini silersen kaybolabilir. WhatsApp mesajları otomatik okunmaz/gönderilmez. Takvim etkinliği .ics dosyası olarak hazırlanır ve ekleme işlemini sen onaylarsın.</div>
@@ -46,20 +46,35 @@ const STORAGE_KEY='jarvis-assistant-tasks-v1';
 let taskItems=[];
 try { const saved=localStorage.getItem(STORAGE_KEY); if(saved) taskItems=JSON.parse(saved); } catch(e) { taskItems=[]; }
 function saveTasks(){try{localStorage.setItem(STORAGE_KEY,JSON.stringify(taskItems));}catch(e){alert('Bu tarayıcı görevleri kaydedemedi.');}}
+const taskDueDate=document.getElementById('taskDueDate'),taskPriority=document.getElementById('taskPriority'),taskFilter=document.getElementById('taskFilter');
 function renderTasks(){
  tasks.replaceChildren();
- if(!taskItems.length){const empty=document.createElement('p');empty.className='muted';empty.textContent='Henüz görev yok. Yukarıdan bir görev ekleyebilirsin.';tasks.appendChild(empty);return;}
- taskItems.forEach(task=>{
+ const filter=taskFilter.value;
+ const visible=taskItems.filter(task=>filter==='all'||(filter==='open'&&!task.done)||(filter==='done'&&task.done));
+ if(!visible.length){const empty=document.createElement('p');empty.className='muted';empty.textContent=taskItems.length?'Bu filtrede görev yok.':'Henüz görev yok. Yukarıdan bir görev ekleyebilirsin.';tasks.appendChild(empty);return;}
+ visible.slice().sort((a,b)=>{
+  if(a.done!==b.done)return a.done?1:-1;
+  const ad=a.dueDate||'9999-12-31',bd=b.dueDate||'9999-12-31';
+  if(ad!==bd)return ad.localeCompare(bd);
+  const rank={high:0,normal:1,low:2};return (rank[a.priority||'normal']??1)-(rank[b.priority||'normal']??1);
+ }).forEach(task=>{
   const row=document.createElement('div');row.className='item';row.style.display='flex';row.style.alignItems='center';row.style.gap='10px';
-  const check=document.createElement('input');check.type='checkbox';check.checked=task.done;check.setAttribute('aria-label','Görevi tamamlandı olarak işaretle');check.style.width='auto';check.addEventListener('change',()=>{task.done=check.checked;saveTasks();renderTasks();});
-  const label=document.createElement('span');label.textContent=task.text;label.style.flex='1';if(task.done)label.style.textDecoration='line-through';if(task.done)label.style.opacity='.6';
+  const check=document.createElement('input');check.type='checkbox';check.checked=!!task.done;check.setAttribute('aria-label','Görevi tamamlandı olarak işaretle');check.style.width='auto';check.addEventListener('change',()=>{task.done=check.checked;saveTasks();renderTasks();});
+  const details=document.createElement('div');details.style.flex='1';details.style.minWidth='0';
+  const label=document.createElement('div');label.textContent=task.text; if(task.done){label.style.textDecoration='line-through';label.style.opacity='.6';}
+  details.appendChild(label);
+  const meta=[];
+  if(task.dueDate){const date=new Date(task.dueDate+'T12:00:00');const dateText=date.toLocaleDateString('tr-TR');const todayText=new Date();todayText.setHours(0,0,0,0);const due=new Date(task.dueDate+'T00:00:00');meta.push('Son tarih: '+dateText+( !task.done&&due<todayText?' · GECİKTİ':'') );}
+  const p=task.priority||'normal';if(p==='high')meta.push('Yüksek öncelik');else if(p==='low')meta.push('Düşük öncelik');
+  if(meta.length){const small=document.createElement('div');small.className='muted';small.textContent=meta.join(' · ');if(!task.done&&task.dueDate&&new Date(task.dueDate+'T00:00:00')<new Date(new Date().setHours(0,0,0,0)))small.style.color='#fca5a5';details.appendChild(small);}
   const remove=document.createElement('button');remove.type='button';remove.className='button';remove.textContent='Sil';remove.setAttribute('aria-label','Görevi sil');remove.style.padding='5px 9px';remove.addEventListener('click',()=>{taskItems=taskItems.filter(item=>item.id!==task.id);saveTasks();renderTasks();});
-  row.append(check,label,remove);tasks.appendChild(row);
+  row.append(check,details,remove);tasks.appendChild(row);
  });
 }
-function addTask(value){taskItems.push({id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),text:value,done:false});saveTasks();renderTasks();}
+function addTask(value,dueDate='',priority='normal'){taskItems.push({id:Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,8),text:value,done:false,dueDate,priority});saveTasks();renderTasks();}
+taskFilter.addEventListener('change',renderTasks);
 renderTasks();
-form.addEventListener('submit',e=>{e.preventDefault();const value=input.value.trim();if(!value)return;addTask(value);input.value='';});
+form.addEventListener('submit',e=>{e.preventDefault();const value=input.value.trim();if(!value)return;addTask(value,taskDueDate.value,taskPriority.value);input.value='';taskDueDate.value='';taskPriority.value='normal';});
 const commandInput=document.getElementById('commandInput'),commandStatus=document.getElementById('commandStatus');
 document.getElementById('runCommand').addEventListener('click',()=>{
  const raw=commandInput.value.trim();const cmd=raw.toLocaleLowerCase('tr-TR');
