@@ -22,6 +22,25 @@
   <div class="notice">Gizlilik: Görevler yalnızca bu cihazdaki tarayıcıda saklanır; sunucuya gönderilmez. Tarayıcı verilerini silersen kaybolabilir. WhatsApp mesajları otomatik okunmaz/gönderilmez ve gerçek takvim henüz bağlı değildir.</div>
   <footer>Jarvis Assistant · Kişisel WhatsApp için güvenli manuel aktarım prototipi</footer>
 </main><script>
+const calendarForm=document.getElementById('calendarForm'),calendarStatus=document.getElementById('calendarStatus');
+const eventDate=document.getElementById('eventDate');
+const today=new Date();eventDate.value=new Date(today.getTime()-today.getTimezoneOffset()*60000).toISOString().slice(0,10);
+function icsEscape(value){return value.replace(/\\/g,'\\\\').replace(/\n/g,'\\n').replace(/,/g,'\\,').replace(/;/g,'\\;');}
+function icsDate(date,time){return date.replace(/-/g,'')+'T'+time.replace(':','')+'00';}
+calendarForm.addEventListener('submit',e=>{
+ e.preventDefault();
+ const title=document.getElementById('eventTitle').value.trim(),date=eventDate.value,start=document.getElementById('eventStart').value,end=document.getElementById('eventEnd').value,notes=document.getElementById('eventNotes').value.trim();
+ if(!title||!date||!start||!end){calendarStatus.textContent='Lütfen etkinlik adı, tarih ve saatleri doldur.';return;}
+ if(end<=start){calendarStatus.textContent='Bitiş saati başlangıç saatinden sonra olmalı.';return;}
+ const stamp=new Date().toISOString().replace(/[-:]/g,'').replace(/\.\d{3}/,'');
+ const uid=(crypto.randomUUID?crypto.randomUUID():Date.now()+'@jarvis-assistant');
+ const lines=['BEGIN:VCALENDAR','VERSION:2.0','PRODID:-//Jarvis Assistant//TR','CALSCALE:GREGORIAN','BEGIN:VEVENT','UID:'+uid,'DTSTAMP:'+stamp,'SUMMARY:'+icsEscape(title),'DTSTART;TZID=Europe/Berlin:'+icsDate(date,start),'DTEND;TZID=Europe/Berlin:'+icsDate(date,end)];
+ if(notes)lines.push('DESCRIPTION:'+icsEscape(notes));
+ lines.push('END:VEVENT','END:VCALENDAR');
+ const blob=new Blob([lines.join('\r\n')],{type:'text/calendar;charset=utf-8'}),url=URL.createObjectURL(blob),link=document.createElement('a');
+ link.href=url;link.download='jarvis-etkinlik.ics';document.body.appendChild(link);link.click();link.remove();setTimeout(()=>URL.revokeObjectURL(url),1500);
+ calendarStatus.textContent='Etkinlik dosyası oluşturuldu. Dosyayı açıp Apple Takvim'e ekle; henüz otomatik olarak takvime kaydedilmedi.';
+});
 const form=document.getElementById('taskForm'),input=document.getElementById('taskInput'),tasks=document.getElementById('tasks');
 const STORAGE_KEY='jarvis-assistant-tasks-v1';
 let taskItems=[];
